@@ -30,35 +30,49 @@ def save_seen(seen):
 
 
 def get_job_urls():
-    response = requests.get(SITEMAP_INDEX, headers=HEADERS, timeout=30)
-    response.raise_for_status()
-
-    root = ET.fromstring(response.content)
-    sitemap_urls = []
-
-    for item in root:
-        loc = item.find("{*}loc")
-        if loc is not None and "job-sitemap" in loc.text:
-            sitemap_urls.append(loc.text.strip())
-
     job_urls = set()
 
-    for sitemap in sitemap_urls:
-        try:
-            r = requests.get(sitemap, headers=HEADERS, timeout=30)
-            r.raise_for_status()
-            sitemap_root = ET.fromstring(r.content)
+    for number in range(1, 11):
+        sitemap = (
+            f"https://www.ethiopianreporterjobs.com/"
+            f"job-sitemap{number}.xml"
+        )
 
-            for item in sitemap_root:
+        try:
+            response = requests.get(
+                sitemap,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "application/xml,text/xml,*/*",
+                },
+                timeout=30,
+            )
+
+            response.raise_for_status()
+            root = ET.fromstring(response.content)
+
+            for item in root:
                 loc = item.find("{*}loc")
-                if loc is not None and "/jobs/" in loc.text:
-                    job_urls.add(loc.text.strip())
+                if loc is not None and loc.text:
+                    url = loc.text.strip()
+                    if "/jobs/" in url:
+                        job_urls.add(url)
+
+            print(f"Successfully checked sitemap {number}")
 
         except Exception as e:
-            print("Sitemap error:", sitemap, e)
+            print(f"Could not read sitemap {number}: {e}")
+
+    if not job_urls:
+        raise RuntimeError(
+            "No vacancy URLs retrieved. The website may be blocking "
+            "GitHub Actions."
+        )
 
     return job_urls
-
 
 def find_jobposting(data):
     if isinstance(data, list):
